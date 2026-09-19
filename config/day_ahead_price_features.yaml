@@ -1,0 +1,96 @@
+single_run:
+  cutoff_local: '10:30'
+  ready_features:
+  - calendar
+  - past_day_ahead_prices
+  - past_other_zone_prices
+  - national_load
+  - regional_weather
+  - jao_d2cf_vertical_load
+  - jao_d2cf_generation
+  - jao_d2cf_net_position
+  - jao_net_position_limits
+  - jao_cross_border_exchange_limits
+training_actual_features:
+- national_load
+- regional_weather
+eda_actual_series:
+- national_wind_onshore_generation
+- national_wind_offshore_generation
+- national_solar_generation
+- residual_load
+pending_features:
+- national_wind_onshore_generation
+- national_wind_offshore_generation
+- national_solar_generation
+- residual_load
+- latest_known_ttf_gas_price
+- latest_known_eua_price
+past_price_features:
+- calendar
+- past_day_ahead_prices
+- past_other_zone_prices
+forbidden_inference_features:
+- actual_load_d
+- actual_wind_generation_d
+- actual_solar_generation_d
+- actual_cross_border_flows_d
+- cleared_net_positions_d
+- day_ahead_price_d
+de_lu_sources:
+  timezone: Europe/Berlin
+  smard:
+    region: DE
+    actual_series:
+      national_load_mw: 410
+      national_wind_onshore_generation_mw: 4067
+      national_wind_offshore_generation_mw: 1225
+      national_solar_generation_mw: 4068
+      residual_load_mw: 4359
+    forecast_series:
+      national_load_mw: 411
+    neighbor_price_series:
+      at: 4170
+      be: 4996
+      cz: 261
+      fr: 254
+      nl: 256
+      pl: 257
+  weather:
+    historical_model: era5
+    forecast_model: icon_d2
+    variables:
+    - temperature_2m
+    - cloud_cover
+    - wind_speed_100m
+    - shortwave_radiation
+    - diffuse_radiation
+    points:
+      northwest:
+        latitude: 53.2
+        longitude: 8.3
+        cell_selection: land
+      northeast:
+        latitude: 53.1
+        longitude: 13.2
+        cell_selection: land
+      central:
+        latitude: 51.2
+        longitude: 10.4
+        cell_selection: land
+      southwest:
+        latitude: 49.2
+        longitude: 8.5
+        cell_selection: land
+      southeast:
+        latitude: 48.5
+        longitude: 11.5
+        cell_selection: land
+      north_sea:
+        latitude: 54.5
+        longitude: 7.0
+        cell_selection: sea
+      baltic_sea:
+        latitude: 54.5
+        longitude: 13.5
+        cell_selection: sea

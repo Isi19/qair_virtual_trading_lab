@@ -1,0 +1,5 @@
+day_ahead:
+  observation_cutoff_local: '10:30'
+  weather_j1:
+    model: icon_d2
+    publication_delay_hours: 3

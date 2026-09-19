@@ -1,0 +1,14 @@
+# Base locale reconstruite à partir des fichiers Parquet du projet.
+.venv310/
+.python310-runtime/
+.pytest_cache/
+tests/
+.vscode/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+archive/
+
+data/warehouse/*.duckdb
+data/warehouse/*.wal
+refab.env
