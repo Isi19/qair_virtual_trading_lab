@@ -1,12 +1,14 @@
 # Qair Virtual Trading Lab
 
-Data-science project for renewable electricity trading. It simulates a DE-LU Qair portfolio made of Langer Wald site(onshore wind, 31 MW) and Perleberg site (solar, 22.1 MW).
+Data-science project for renewable electricity trading. It turns Day-Ahead production and price forecasts into a quarter-hourly nomination decision, then evaluates its economic outcome after delivery.
 
-The objective is to turn Day-Ahead production and price forecasts into a nomination decision, then evaluate its economic outcome after delivery.
+The project simulates a DE-LU Qair portfolio composed of Langer Wald (onshore wind, 31 MW) and Perleberg (solar, 22.1 MW).
 
 ## Research question
 
 Before the Day-Ahead market, should the portfolio nominate P10, P50 or P90 of its forecast production for each quarter-hour?
+
+`D-1` means the day before delivery. `P10`, `P50` and `P90` are the 10th, 50th and 90th percentile production or price forecasts. `reBAP` is the German imbalance settlement price.
 
 The backtest covers July and August 2026, or 5,952 quarter-hours. It evaluates a decision made with information available on D-1; it is not a live demonstration.
 
@@ -22,7 +24,7 @@ The backtest covers July and August 2026, or 5,952 quarter-hours. It evaluates a
 
 Langer Wald and Perleberg form a virtual portfolio. Their production is generated from reanalysis weather, asset parameters and physical wind/PV models; it is not measured Qair production. Reanalysis data is also not equivalent to an on-site weather station.
 
-The models are trained on historical values. Archived D-1 forecasts are then used where the validation and backtest must reproduce the information that would actually have been available in operaional conditions orbefore the market cutoff.
+The models are trained on historical values. Archived D-1 forecasts are then used where validation and backtesting must reproduce the information that would actually have been available in operational conditions before the market cutoff.
 
 ## Decision chain
 
@@ -119,6 +121,8 @@ The result is a decision-support backtest, not a claim that one nomination rule 
 
 ## Dashboard
 
-The Streamlit dashboard exposes the same work in four views: portfolio overview, production forecast, Day-Ahead price, and strategy/backtest. The backtest page separates the information available before delivery from the realised settlement outcome.
+Explore the hosted application: [Renewable Portfolio on Streamlit](https://virtual-sites-bidding-nominations.streamlit.app/).
+
+The Streamlit dashboard exposes the same work in five views: portfolio overview, production forecast, Day-Ahead price, nomination strategy, and backtest & settlement. The backtest page separates the information available before delivery from the realised settlement outcome.
 
 

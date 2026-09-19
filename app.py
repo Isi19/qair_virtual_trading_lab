@@ -29,13 +29,50 @@ st.markdown(
             border-right: 1px solid #29394B;
         }
 
+        [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
+            gap: 0.45rem;
+        }
+
+        .sidebar-app-title {
+            margin: 0 0 2px 0;
+            color: #E7EBF0;
+            font-size: 1.18rem;
+            font-weight: 650;
+            line-height: 1.25;
+        }
+
+        .sidebar-context-note {
+            margin: 0;
+            color: #93A2B5;
+            font-size: 0.72rem;
+            line-height: 1.3;
+        }
+
+        .sidebar-section-label {
+            margin: 8px 0 2px 2px;
+            color: #7F91A6;
+            font-size: 0.64rem;
+            font-weight: 650;
+            letter-spacing: 0.12em;
+        }
+
+        [data-testid="stSidebar"] [data-testid="stSelectbox"] label,
+        [data-testid="stSidebar"] [data-testid="stDateInput"] label {
+            min-height: 0;
+        }
+
+        [data-testid="stSidebar"] [data-testid="stSelectbox"] label p,
+        [data-testid="stSidebar"] [data-testid="stDateInput"] label p {
+            font-size: 0.76rem;
+        }
+
         [data-testid="stHeader"] { background: rgba(0, 0, 0, 0.92); }
 
         [data-testid="stSidebar"] [data-testid="stPageLink-NavLink"] {
             box-sizing: border-box;
-            min-height: 2rem;
-            margin: 2px 0 !important;
-            padding: 5px 10px !important;
+            min-height: 1.85rem;
+            margin: 1px 3px 1px 0 !important;
+            padding: 4px 9px !important;
             border: 1px solid transparent !important;
             border-radius: 7px !important;
             background: transparent !important;
@@ -63,8 +100,10 @@ st.markdown(
         }
 
         [data-testid="stSidebar"] .st-key-sidebar-active-page-link [data-testid="stPageLink-NavLink"] {
-            background: #1A302B !important;
-            border-color: #36584C !important;
+            background: #18232F !important;
+            border-color: transparent !important;
+            border-left: 2px solid #6FAF8E !important;
+            padding-left: 8px !important;
         }
 
         [data-testid="stSidebar"] .st-key-sidebar-active-page-link [data-testid="stPageLink-NavLink"],
@@ -79,7 +118,7 @@ st.markdown(
         }
 
         [data-testid="stSidebar"] [data-testid="stExpander"] summary {
-            min-height: 2rem;
+            min-height: 1.85rem;
             box-sizing: border-box;
             border-radius: 7px;
             color: #B4C0CF;
@@ -99,7 +138,8 @@ st.markdown(
         }
 
         [data-testid="stSidebar"] [data-testid="stExpander"] details[open] > summary {
-            background: #1A302B;
+            background: #18232F;
+            border-left: 2px solid #6FAF8E;
             color: #D7EDE1;
             font-weight: 600;
         }
@@ -117,7 +157,7 @@ st.markdown(
         }
 
         [data-testid="stSidebar"] [data-testid="stExpanderDetails"] {
-            padding-left: 12px;
+            padding-left: 16px;
         }
 
         [data-testid="stMetric"] {
@@ -297,7 +337,10 @@ def sidebar_page_link(page, label: str) -> None:
         st.page_link(page, label=label)
 
 with st.sidebar:
-    st.title("Renewable Portfolio")
+    st.markdown(
+        '<div class="sidebar-app-title">Renewable Portfolio</div>',
+        unsafe_allow_html=True,
+    )
     market_zone = st.selectbox(
         "Bidding zone",
         options=list(MARKET_ZONES),
@@ -309,16 +352,11 @@ with st.sidebar:
         disabled=len(MARKET_ZONES) == 1,
     )
     zone_config = market_zone_config(market_zone)
-    asset_names = [asset["name"] for asset in zone_config["assets"]]
-    listed_assets = (
-        " and ".join(asset_names)
-        if len(asset_names) == 2
-        else ", ".join(asset_names)
-    )
-    verb = "is" if len(asset_names) == 1 else "are"
-    st.caption(
-        f"{listed_assets} {verb} virtual assets used for this backtest, "
-        "not Qair's real operating portfolio."
+    st.markdown(
+        '<p class="sidebar-context-note">'
+        "Virtual portfolio · Not an operational Qair portfolio"
+        "</p>",
+        unsafe_allow_html=True,
     )
     # The zone and delivery period define the context for every page below.
     try:
@@ -336,11 +374,17 @@ with st.sidebar:
         key=f"delivery_period_{market_zone}",
     )
     st.session_state["delivery_period"] = period
-    st.caption(
-        f"Delivery times: {zone_config['timezone']} Â· "
-        f"{zone_config['resolution_minutes']}-minute resolution"
+    st.markdown(
+        '<p class="sidebar-context-note">'
+        f"Historical backtest · {zone_config['timezone']} · "
+        f"{zone_config['resolution_minutes']}-min"
+        "</p>",
+        unsafe_allow_html=True,
     )
-    st.divider()
+    st.markdown(
+        '<div class="sidebar-section-label">MODULES</div>',
+        unsafe_allow_html=True,
+    )
     sidebar_page_link(portfolio_page, "Portfolio Overview")
     sidebar_page_link(production_page, "Production Forecast")
     sidebar_page_link(price_page, "Day-Ahead Price")
@@ -351,8 +395,6 @@ with st.sidebar:
     ):
         sidebar_page_link(nomination_page, "Nomination Strategy")
         sidebar_page_link(backtest_page, "Backtest & Settlement")
-
-    st.caption("Historical backtest · Virtual production")
 
 if len(period) != 2:
     st.info("Select an end date to complete the delivery period.")
