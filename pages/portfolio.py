@@ -4,10 +4,16 @@ import streamlit as st
 import altair as alt
 import pandas as pd
 
-from src.dashboard.data import filter_period, load_table, market_zone_config
+from src.dashboard.data import (
+    filter_period,
+    load_table,
+    market_zone_config,
+    require_available_zone,
+)
 from src.dashboard.components import chart_card
 
 
+require_available_zone()
 zone_config = market_zone_config()
 zone_assets = zone_config["assets"]
 st.title("Portfolio Overview")
@@ -42,7 +48,7 @@ if "portfolio_nomination_policy" not in st.session_state:
     st.session_state["portfolio_nomination_policy"] = "dynamic_expected_pnl"
 
 st.markdown("**Nomination policy**")
-policy_row, _ = st.columns([3, 1])
+policy_row, _ = st.columns([2.5, 1.5])
 policy_columns = policy_row.columns(4)
 for column, (label, policy_name) in zip(policy_columns, policies):
     is_selected = st.session_state["portfolio_nomination_policy"] == policy_name
@@ -93,7 +99,8 @@ p50_forecast_mwh = portfolio["portfolio_p50_mwh"].sum()
 nominated_energy_mwh = settlement["nomination_mwh"].sum()
 absolute_imbalance_mwh = settlement["imbalance_volume_mwh"].abs().sum()
 
-st.caption("The selected policy affects nomination and imbalance, not production forecasts.")
+st.caption("The selected policy affects nomination and imbalance, not production forecasts. \n"
+           f"KPIs cover {period_start:%A, %d %B %Y}–{period_end:%A, %d %B %Y}. ")
 kpi_columns = st.columns(4)
 kpi_values = [
     ("Actual Production", actual_production_mwh),
@@ -104,6 +111,7 @@ kpi_values = [
 
 for column, (label, value) in zip(kpi_columns, kpi_values):
     column.metric(label, f"{value:,.0f} MWh")
+
 
 delivery_days = sorted(portfolio["delivery_start_local"].dt.date.unique())
 day_picker, _ = st.columns([1.1, 3.9])
@@ -144,6 +152,19 @@ chart_series["series"] = chart_series["series"].map(
         "nomination_mw": "Nomination",
     }
 )
+legend_series = pd.concat(
+    [
+        chart_series,
+        pd.DataFrame(
+            {
+                "delivery_start_local": [day_chart["delivery_start_local"].iloc[0]],
+                "series": ["P10–P90 range"],
+                "power_mw": [float("nan")],
+            }
+        ),
+    ],
+    ignore_index=True,
+)
 
 x_axis = alt.X(
     "delivery_start_local:T",
@@ -155,6 +176,13 @@ power_axis = alt.Y(
     title="Power (MW)",
     scale=alt.Scale(zero=True),
 )
+legend_domain = [
+    "Actual production",
+    "P50 forecast",
+    "Nomination",
+    "P10–P90 range",
+]
+legend_colors = ["#E7EBF0", "#6FAF8E", "#D9B36C", "#9BC8AE"]
 uncertainty_band = alt.Chart(day_chart).mark_area(
     color="#6FAF8E",
     opacity=0.2,
@@ -171,17 +199,14 @@ uncertainty_band = alt.Chart(day_chart).mark_area(
         alt.Tooltip("portfolio_p90_mw:Q", title="P90 (MW)", format=".1f"),
     ],
 )
-production_lines = alt.Chart(chart_series).mark_line(strokeWidth=2.2).encode(
+production_lines = alt.Chart(legend_series).mark_line(strokeWidth=2.2).encode(
     x=x_axis,
     y=alt.Y("power_mw:Q", title="Power (MW)", scale=alt.Scale(zero=True)),
     color=alt.Color(
         "series:N",
         title=None,
-        sort=["Actual production", "P50 forecast", "Nomination"],
-        scale=alt.Scale(
-            domain=["Actual production", "P50 forecast", "Nomination"],
-            range=["#E7EBF0", "#6FAF8E", "#D9B36C"],
-        ),
+        sort=legend_domain,
+        scale=alt.Scale(domain=legend_domain, range=legend_colors),
         legend=alt.Legend(orient="top"),
     ),
     tooltip=[

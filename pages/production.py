@@ -9,10 +9,12 @@ from src.dashboard.data import (
     load_asset_forecast,
     load_table,
     market_zone_config,
+    require_available_zone,
     selected_market_zone_id,
 )
 
 
+require_available_zone()
 zone_id = selected_market_zone_id()
 zone_config = market_zone_config()
 period_start, period_end = st.session_state["delivery_period"]
@@ -81,30 +83,38 @@ coverage_percent = actual.between(p10, p90).mean() * 100
 mean_interval_width_mw = (p90 - p10).mean()
 bias_mw = bias_error.mean()
 
+st.markdown("**FORECAST PERFORMANCE · GLOBAL PERIOD**")
 st.caption(
-    f"Accuracy metrics cover {period_start:%d/%m/%Y}–{period_end:%d/%m/%Y}. "
+    f"Accuracy metrics cover {period_start:%A, %d %B %Y}–{period_end:%A, %d %B %Y}. "
     "The selected day will control the intraday chart."
 )
 
-metric_columns = st.columns(6)
-metrics = [
+metric_columns = st.columns(4)
+primary_metrics = [
     ("MAE", f"{mae_mw:,.2f} MW"),
-    ("RMSE", f"{rmse_mw:,.2f} MW"),
     ("nMAE", f"{nmae_percent:.2f}%"),
+    ("RMSE", f"{rmse_mw:,.2f} MW"),
     ("P10–P90 Coverage", f"{coverage_percent:.1f}%"),
-    ("Mean Band Width", f"{mean_interval_width_mw:,.2f} MW"),
-    ("P50 Bias", f"{bias_mw:+,.2f} MW"),
 ]
 
-for column, (label, value) in zip(metric_columns, metrics):
+for column, (label, value) in zip(metric_columns, primary_metrics):
     column.metric(
         label,
         value,
-        help=(
-            "P50 forecast minus actual. Positive means overforecast."
-            if label == "P50 Bias"
-            else None
-        ),
+        delta="Nominal target: 80%" if label == "P10–P90 Coverage" else None,
+        delta_color="off",
+    )
+
+with st.container(key="production-secondary-metrics"):
+    secondary_columns = st.columns([1, 1, 2])
+    secondary_columns[0].metric(
+        "Mean Band Width",
+        f"{mean_interval_width_mw:,.2f} MW",
+    )
+    secondary_columns[1].metric(
+        "P50 Bias",
+        f"{bias_mw:+,.2f} MW",
+        help="P50 forecast minus actual. Positive means overforecast.",
     )
 
 day_forecast = period_forecast.loc[
@@ -125,6 +135,12 @@ line_data["series"] = line_data["series"].map(
         p50_column: "P50 forecast",
     }
 )
+legend_data = line_data.copy()
+legend_data.loc[len(legend_data)] = {
+    "delivery_start_local": day_forecast["delivery_start_local"].iloc[0],
+    "series": "P10–P90 range",
+    "power_mw": float("nan"),
+}
 
 delivery_time_axis = alt.X(
     "delivery_start_local:T",
@@ -152,16 +168,16 @@ interval_band = alt.Chart(day_forecast).mark_area(
         alt.Tooltip(p90_column, title="P90 (MW)", format=".1f"),
     ],
 )
-forecast_lines = alt.Chart(line_data).mark_line(strokeWidth=2.2).encode(
+forecast_lines = alt.Chart(legend_data).mark_line(strokeWidth=2.2).encode(
     x=delivery_time_axis,
     y=alt.Y("power_mw:Q", title="Power (MW)", scale=alt.Scale(zero=True)),
     color=alt.Color(
         "series:N",
         title=None,
-        sort=["Actual production", "P50 forecast"],
+        sort=["Actual production", "P50 forecast", "P10–P90 range"],
         scale=alt.Scale(
-            domain=["Actual production", "P50 forecast"],
-            range=["#E7EBF0", "#6FAF8E"],
+            domain=["Actual production", "P50 forecast", "P10–P90 range"],
+            range=["#E7EBF0", "#6FAF8E", "#9BC8AE"],
         ),
         legend=alt.Legend(orient="top"),
     ),
@@ -186,7 +202,7 @@ production_chart = (
     )
     .configure_legend(labelColor="#D7DFE8", titleColor="#D7DFE8")
 )
-
+st.markdown("**FORECAST PROFILE · SELECTED DAY**")
 with chart_card(
     title=f"{selected_asset_name} production forecast · {selected_day:%d %b %Y}",
     description=(
@@ -240,8 +256,8 @@ hour_axis = alt.X(
     axis=alt.Axis(values=hour_ticks, labelAngle=0),
 )
 mae_bars = alt.Chart(hourly_mae).mark_bar(
-    color="#6FAF8E",
-    opacity=0.55,
+    color="#4F8FCB",
+    opacity=0.72,
     cornerRadiusTopLeft=3,
     cornerRadiusTopRight=3,
 ).encode(
@@ -297,7 +313,7 @@ daily_error_heatmap = (
         color=alt.Color(
             "mae_mw:Q",
             title="MAE (MW)",
-            scale=alt.Scale(scheme="greens"),
+            scale=alt.Scale(scheme="blues"),
         ),
         tooltip=[
             alt.Tooltip("delivery_day_label:O", title="Delivery day"),
@@ -318,7 +334,7 @@ daily_error_heatmap = (
     )
     .configure_legend(labelColor="#D7DFE8", titleColor="#D7DFE8")
 )
-
+st.markdown("**TEMPORAL DIAGNOSTICS · GLOBAL PERIOD**")
 hourly_column, heatmap_column = st.columns(2, gap="medium")
 with hourly_column:
     with chart_card(

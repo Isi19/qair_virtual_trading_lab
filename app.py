@@ -124,10 +124,10 @@ st.markdown(
         }
 
         [data-testid="stSidebar"] .st-key-sidebar-active-page-link [data-testid="stPageLink-NavLink"] {
-            background: #18232F !important;
+            background: #20352D !important;
             border-color: transparent !important;
-            border-left: 2px solid #6FAF8E !important;
-            padding-left: 8px !important;
+            border-left: 3px solid #6FAF8E !important;
+            padding-left: 7px !important;
         }
 
         [data-testid="stSidebar"] .st-key-sidebar-active-page-link [data-testid="stPageLink-NavLink"],
@@ -195,6 +195,24 @@ st.markdown(
             padding: 12px;
         }
 
+        .st-key-production-secondary-metrics [data-testid="stMetric"],
+        .st-key-price-secondary-metrics [data-testid="stMetric"] {
+            background: #111923 !important;
+            border-color: #304A40 !important;
+            padding: 9px 11px;
+        }
+
+        .st-key-production-secondary-metrics [data-testid="stMetricLabel"] p,
+        .st-key-price-secondary-metrics [data-testid="stMetricLabel"] p {
+            color: #9EADBF !important;
+            font-size: 0.78rem;
+        }
+
+        .st-key-production-secondary-metrics [data-testid="stMetricValue"],
+        .st-key-price-secondary-metrics [data-testid="stMetricValue"] {
+            font-size: 1.35rem;
+        }
+
         [class*="st-key-chart-card-"] {
             box-sizing: border-box;
             background: var(--dashboard-card-background) !important;
@@ -260,7 +278,7 @@ st.markdown(
         }
 
         [data-testid="stButton"] button {
-            min-height: 56px;
+            min-height: 48px;
             border: 1px solid #3D634D;
             border-radius: 9px;
             background: #151E2A;
@@ -281,7 +299,7 @@ st.markdown(
         [class*="st-key-policy-card-dynamic-"] {
             box-sizing: border-box;
             display: flex;
-            min-height: 56px;
+            min-height: 48px;
             align-items: center;
             border: 1px solid #3D634D !important;
             border-radius: 9px !important;
@@ -295,7 +313,7 @@ st.markdown(
         }
 
         [class*="st-key-policy-card-dynamic-"] [data-testid="stButton"] button {
-            min-height: 48px !important;
+            min-height: 40px !important;
             border: 0 !important;
             background: transparent !important;
             color: #D9E4DC !important;
@@ -329,6 +347,38 @@ st.markdown(
         [data-testid="stSelectbox"] [data-baseweb="select"]:focus-within > div {
             border-color: #6FAF8E;
             box-shadow: 0 0 0 1px #6FAF8E;
+        }
+
+        [class*="st-key-nomination-p50-alert"] [data-testid="stAlert"] {
+            width: min(100%, 700px);
+            max-width: 100%;
+            margin: 0;
+            min-height: 0;
+            padding: 0.4rem 0.7rem;
+            display: flex;
+            align-items: center;
+            background: #2B2A22;
+            border: 1px solid #5A5034;
+            border-left: 3px solid #D9B36C;
+            color: #E7D8B5;
+        }
+
+        [class*="st-key-nomination-p50-alert"] [data-testid="stAlert"] * {
+            color: #E7D8B5 !important;
+        }
+
+        [class*="st-key-nomination-p50-alert"] [data-testid="stAlert"] .stAlertContainer {
+            background: #2B2A22 !important;
+        }
+
+        [class*="st-key-nomination-p50-alert"] [data-testid="stAlert"] p {
+            margin: 0;
+            text-align: left;
+        }
+
+        [class*="st-key-nomination-p50-alert"] {
+            width: 100%;
+            max-width: 100%;
         }
 
         h1, h2, h3 { color: #E7EBF0; letter-spacing: -0.01em; }
@@ -385,35 +435,42 @@ with st.sidebar:
     with st.container(key="sidebar-portfolio-note"):
         st.markdown(
             '<p class="sidebar-context-note">'
-            "Virtual Qair portfolio · Backtest only"
-            "</p>",
+            + (
+                "Virtual Qair portfolio"
+                if zone_config.get("available", True)
+                else "No data available for this bidding zone"
+            )
+            + "</p>",
             unsafe_allow_html=True,
         )
-    # The zone and delivery period define the context for every page below.
-    try:
-        first_day, last_day = available_period(market_zone)
-    except (FileNotFoundError, ValueError) as error:
-        st.error(f"Unable to load the backtest period: {error}")
-        st.stop()
+    if zone_config.get("available", True):
+        # The zone and delivery period define the context for every page below.
+        try:
+            first_day, last_day = available_period(market_zone)
+        except (FileNotFoundError, ValueError) as error:
+            st.error(f"Unable to load the backtest period: {error}")
+            st.stop()
 
-    with st.container(key="sidebar-period-block"):
-        period = st.date_input(
-            "Delivery period",
-            value=(first_day, last_day),
-            min_value=first_day,
-            max_value=last_day,
-            format="DD/MM/YYYY",
-            key=f"delivery_period_{market_zone}",
-        )
-    st.session_state["delivery_period"] = period
-    with st.container(key="sidebar-period-meta"):
-        st.markdown(
-            '<p class="sidebar-context-note">'
-            f"Historical backtest · {zone_config['timezone']} · "
-            f"{zone_config['resolution_minutes']}-min"
-            "</p>",
-            unsafe_allow_html=True,
-        )
+        with st.container(key="sidebar-period-block"):
+            period = st.date_input(
+                "Delivery period",
+                value=(first_day, last_day),
+                min_value=first_day,
+                max_value=last_day,
+                format="DD-MM-YYYY",
+                key=f"delivery_period_{market_zone}",
+            )
+        st.session_state["delivery_period"] = period
+        with st.container(key="sidebar-period-meta"):
+            st.markdown(
+                '<p class="sidebar-context-note">'
+                f"Historical backtest · {zone_config['timezone']} · "
+                f"{zone_config['resolution_minutes']}-min"
+                "</p>",
+                unsafe_allow_html=True,
+            )
+    else:
+        period = ()
     with st.container(key="sidebar-modules-heading"):
         st.markdown(
             '<span class="sidebar-section-label">MODULES</span>',
@@ -429,6 +486,10 @@ with st.sidebar:
     ):
         sidebar_page_link(nomination_page, "Nomination Strategy")
         sidebar_page_link(backtest_page, "Backtest & Settlement")
+
+if not zone_config.get("available", True):
+    navigation.run()
+    st.stop()
 
 if len(period) != 2:
     st.info("Select an end date to complete the delivery period.")

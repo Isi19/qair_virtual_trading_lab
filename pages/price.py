@@ -2,8 +2,14 @@ import altair as alt
 import streamlit as st
 
 from src.dashboard.components import chart_card
-from src.dashboard.data import filter_period, load_table, selected_market_zone_id
+from src.dashboard.data import (
+    filter_period,
+    load_table,
+    require_available_zone,
+    selected_market_zone_id,
+)
 
+require_available_zone()
 market_zone = selected_market_zone_id()
 period_start, period_end = st.session_state["delivery_period"]
 
@@ -29,33 +35,42 @@ bias_mean = bias.mean()
 coverage = actual.between(p10, p90).mean() * 100
 mean_interval_width = (p90 - p10).mean()
 
+st.markdown("**FORECAST PERFORMANCE · GLOBAL PERIOD**")
 st.caption(
     f"{market_zone} · Accuracy metrics cover "
-    f"{period_start:%d/%m/%Y}–{period_end:%d/%m/%Y}. "
+    f"{period_start:%A, %d %B %Y}–{period_end:%A, %d %B %Y}. "
     "Bias is P50 minus actual; positive means overforecast. "
     "Negative prices are retained."
 )
 
-metric_columns = st.columns(5)
-metrics = [
+metric_columns = st.columns(3)
+primary_metrics = [
     ("MAE", f"{mae:,.2f} €/MWh"),
     ("RMSE", f"{rmse:,.2f} €/MWh"),
-    ("P50 Bias", f"{bias_mean:+,.2f} €/MWh"),
     ("P10–P90 Coverage", f"{coverage:.1f}%"),
-    ("Mean Band Width", f"{mean_interval_width:,.2f} €/MWh"),
 ]
 
-for column, (label, value) in zip(metric_columns, metrics):
+for column, (label, value) in zip(metric_columns, primary_metrics):
     column.metric(
         label,
         value,
-        help=(
-            "Observed coverage over the selected period; the nominal P10–P90 target is 80%."
-            if label == "P10–P90 Coverage"
-            else None
-        ),
+        delta="Nominal target: 80%" if label == "P10–P90 Coverage" else None,
+        delta_color="off",
     )
 
+with st.container(key="price-secondary-metrics"):
+    secondary_columns = st.columns([1, 1, 1])
+    secondary_columns[0].metric(
+        "Mean Band Width",
+        f"{mean_interval_width:,.2f} €/MWh",
+    )
+    secondary_columns[1].metric(
+        "P50 Bias",
+        f"{bias_mean:+,.2f} €/MWh",
+        help="P50 forecast minus actual. Positive means price overforecast.",
+    )
+
+st.markdown("**FORECAST PROFILE · SELECTED DAY**")
 with chart_card(
     title=f"{market_zone} Day-Ahead price forecast",
     description=(
@@ -95,6 +110,12 @@ with chart_card(
             "price_p50_eur_mwh": "P50 forecast",
         }
     )
+    legend_data = line_data.copy()
+    legend_data.loc[len(legend_data)] = {
+        "delivery_start_local": day_price["delivery_start_local"].iloc[0],
+        "series": "P10–P90 range",
+        "price_eur_mwh": float("nan"),
+    }
 
     delivery_time_axis = alt.X(
         "delivery_start_local:T",
@@ -126,16 +147,16 @@ with chart_card(
             alt.Tooltip("price_p90_eur_mwh:Q", title="P90 (€/MWh)", format=".2f"),
         ],
     )
-    price_lines = alt.Chart(line_data).mark_line(strokeWidth=2.2).encode(
+    price_lines = alt.Chart(legend_data).mark_line(strokeWidth=2.2).encode(
         x=delivery_time_axis,
         y=alt.Y("price_eur_mwh:Q", title="Day-Ahead price (€/MWh)"),
         color=alt.Color(
             "series:N",
             title=None,
-            sort=["Actual price", "P50 forecast"],
+            sort=["Actual price", "P50 forecast", "P10–P90 range"],
             scale=alt.Scale(
-                domain=["Actual price", "P50 forecast"],
-                range=["#E7EBF0", "#6FAF8E"],
+                domain=["Actual price", "P50 forecast", "P10–P90 range"],
+                range=["#E7EBF0", "#6FAF8E", "#9BC8AE"],
             ),
             legend=alt.Legend(orient="top"),
         ),
@@ -215,8 +236,8 @@ hour_axis = alt.X(
     axis=alt.Axis(values=hour_ticks, labelAngle=0),
 )
 mae_bars = alt.Chart(hourly_errors).mark_bar(
-    color="#6FAF8E",
-    opacity=0.55,
+    color="#4F8FCB",
+    opacity=0.72,
     cornerRadiusTopLeft=3,
     cornerRadiusTopRight=3,
 ).encode(
@@ -272,7 +293,7 @@ daily_error_heatmap = (
         color=alt.Color(
             "mae:Q",
             title="MAE (€/MWh)",
-            scale=alt.Scale(scheme="greens"),
+            scale=alt.Scale(scheme="blues"),
         ),
         tooltip=[
             alt.Tooltip("delivery_day_label:O", title="Delivery day"),
@@ -294,6 +315,7 @@ daily_error_heatmap = (
     .configure_legend(labelColor="#D7DFE8", titleColor="#D7DFE8")
 )
 
+st.markdown("**TEMPORAL DIAGNOSTICS · GLOBAL PERIOD**")
 hourly_column, heatmap_column = st.columns(2, gap="medium")
 with hourly_column:
     with chart_card(

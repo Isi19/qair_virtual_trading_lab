@@ -1,5 +1,7 @@
 # Qair Virtual Trading Lab
 
+[Open the deployed dashboard: Renewable Portfolio on Streamlit](https://virtual-sites-bidding-nominations.streamlit.app/).
+
 Data-science project for renewable electricity trading. It turns Day-Ahead production and price forecasts into a quarter-hourly nomination decision, then evaluates its economic outcome after delivery.
 
 The project simulates a DE-LU Qair portfolio composed of Langer Wald (onshore wind, 31 MW) and Perleberg (solar, 22.1 MW).
@@ -11,6 +13,10 @@ Before the Day-Ahead market, should the portfolio nominate P10, P50 or P90 of it
 `D-1` means the day before delivery. `P10`, `P50` and `P90` are the 10th, 50th and 90th percentile production or price forecasts. `reBAP` is the German imbalance settlement price.
 
 The backtest covers July and August 2026, or 5,952 quarter-hours. It evaluates a decision made with information available on D-1; it is not a live demonstration.
+
+### Bidding-zone availability
+
+The dashboard currently contains backtesting data for the `DE-LU` bidding zone only. `France` and `Poland` are listed as planned zones in the selector, but currently display `No data available` because their datasets have not been added yet.
 
 ## Data sources
 
@@ -120,8 +126,6 @@ This project demonstrates the full chain from structured market and weather data
 The result is a decision-support backtest, not a claim that one nomination rule is universally optimal. The current sample favours fixed P10 on realised Gross PnL, while P50 gives the lowest physical exposure. This distinction is central to interpreting the result for a trading desk.
 
 ## Dashboard
-
-Explore the hosted application: [Renewable Portfolio on Streamlit](https://virtual-sites-bidding-nominations.streamlit.app/).
 
 The Streamlit dashboard exposes the same work in five views: portfolio overview, production forecast, Day-Ahead price, nomination strategy, and backtest & settlement. The backtest page separates the information available before delivery from the realised settlement outcome.
 

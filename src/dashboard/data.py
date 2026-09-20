@@ -11,6 +11,7 @@ DEFAULT_MARKET_ZONE = "DE-LU"
 MARKET_ZONES = {
     "DE-LU": {
         "display_name": "Germany–Luxembourg",
+        "available": True,
         "portfolio_name": "Virtual Qair Portfolio",
         "timezone": "Europe/Berlin",
         "resolution_minutes": 15,
@@ -57,7 +58,15 @@ MARKET_ZONES = {
                 "nomination/de_lu_nomination_backtest_20260701_20260831.parquet"
             ),
         },
-    }
+    },
+    "FR": {
+        "display_name": "France",
+        "available": False,
+    },
+    "PL": {
+        "display_name": "Poland",
+        "available": False,
+    },
 }
 
 
@@ -79,6 +88,14 @@ def selected_market_zone_id() -> str:
 def market_zone_config(zone_id: str | None = None) -> dict:
     """Return the configuration for the selected market zone."""
     return MARKET_ZONES[zone_id or selected_market_zone_id()]
+
+
+def require_available_zone() -> None:
+    """Stop a page before it tries to load data for an unavailable zone."""
+    zone = market_zone_config()
+    if not zone.get("available", True):
+        st.info(f"No data available for {zone['display_name']}.")
+        st.stop()
 
 
 def _load_path(relative_path: str, zone_id: str | None = None) -> pd.DataFrame:

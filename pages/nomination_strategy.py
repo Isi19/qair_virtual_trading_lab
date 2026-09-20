@@ -4,7 +4,12 @@ import pandas as pd
 import streamlit as st
 
 from src.dashboard.components import chart_card
-from src.dashboard.data import filter_period, load_table, selected_market_zone_id
+from src.dashboard.data import (
+    filter_period,
+    load_table,
+    require_available_zone,
+    selected_market_zone_id,
+)
 
 
 CANDIDATE_LABELS = {
@@ -17,6 +22,8 @@ CANDIDATE_COLORS = ["#4F8FCB", "#6FAF8E", "#9B8AC4"]
 SELECTED_COLOR = "#D9B36C"
 HOUR_ORDER = [f"{hour:02d}:00" for hour in range(24)]
 HOUR_TICKS = [f"{hour:02d}:00" for hour in range(0, 24, 2)]
+
+require_available_zone()
 
 
 def style_chart(chart):
@@ -49,6 +56,7 @@ market_zone = selected_market_zone_id()
 period_start, period_end = st.session_state["delivery_period"]
 
 st.title("Nomination Strategy")
+st.caption("EX-ANTE · Information available before nomination")
 
 scores = filter_period(load_table("scores"), period_start, period_end)
 decisions = filter_period(load_table("decisions"), period_start, period_end)
@@ -85,16 +93,17 @@ if p50_count == 0:
     p90_share = choice_totals["P90"] / len(decisions)
     if choice_totals["P10"] and choice_totals["P90"]:
         message = (
-            "P50 is never selected in the current period. The rule behaves mainly "
-            f"as P10 ({p10_share:.1%}), with occasional switches to P90 ({p90_share:.1%})."
+            "**P50 is not selected over the chosen period.**  \n"
+            f"P10 accounts for {p10_share:.1%} of decisions and P90 for {p90_share:.1%}."
         )
     else:
         used_candidate = "P10" if choice_totals["P10"] else "P90"
         message = (
-            f"P50 is never selected in the current period. "
-            f"All decisions are assigned to {used_candidate}."
+            "**P50 is not selected over the chosen period.**  \n"
+            f"{used_candidate} accounts for 100% of decisions."
         )
-    st.info(message)
+    with st.container(key="nomination-p50-alert"):
+        st.info(message)
 
 # Aggregate choices by local delivery hour; each bar sums to 100%.
 decisions["delivery_hour"] = decisions["delivery_start_local"].dt.hour.map(
@@ -131,6 +140,10 @@ hourly_margin = (
     .groupby("delivery_hour", as_index=False)
     .agg(mean_margin_eur=("score_margin_eur", "mean"))
 )
+
+if choice_counts.empty or hourly_scores.empty or hourly_margin.empty:
+    st.info("No hourly nomination metrics are available for the selected period.")
+    st.stop()
 
 st.subheader("Nomination choices by delivery hour")
 choice_column, score_column = st.columns(2, vertical_alignment="top")
@@ -171,6 +184,10 @@ with score_column:
         title="Scores and decision margin by hour",
         description="Mean score above; gap between the best and runner-up below.",
         card_id="nomination-hourly-scores",
+        info_text=(
+            "Score = expected Day-Ahead revenue + expected imbalance settlement. "
+            "The rule selects the candidate with the highest expected score."
+        ),
     ):
         score_lines = alt.Chart(hourly_scores).mark_line(
             point=True,
@@ -203,14 +220,14 @@ with score_column:
             ),
             y=alt.Y(
                 "mean_margin_eur:Q",
-                title="Best-vs-second score gap (€)",
+                title="Best vs second-best score gap (€)",
                 scale=alt.Scale(zero=True),
             ),
             tooltip=[
                 alt.Tooltip("delivery_hour:O", title="Delivery hour"),
                 alt.Tooltip(
                     "mean_margin_eur:Q",
-                    title="Mean score gap (€)",
+                    title="Mean best vs second-best gap (€)",
                     format=".2f",
                 ),
             ],
@@ -228,7 +245,7 @@ with day_picker:
         "Delivery day",
         options=delivery_days,
         index=len(delivery_days) - 1,
-        format_func=lambda day: day.strftime("%d/%m/%Y"),
+        format_func=lambda day: day.strftime("%A, %d %B %Y"),
         key=f"nomination_delivery_day_{market_zone}",
     )
 
@@ -238,6 +255,9 @@ day_decisions = decisions.loc[
 ].copy()
 day_scores["selected_candidate"] = day_scores["delivery_start_utc"].map(
     day_decisions.set_index("delivery_start_utc")["candidate"]
+)
+day_scores["is_winner"] = day_scores["expected_pnl_eur"].eq(
+    day_scores.groupby("delivery_start_utc")["expected_pnl_eur"].transform("max")
 )
 
 nomination_column, daily_score_column = st.columns(2)
@@ -298,10 +318,12 @@ with nomination_column:
 with daily_score_column:
     with chart_card(
         title="Candidate expected scores",
-        description="Expected PnL by quarter hour for each candidate nomination.",
+        description=(
+            "Expected PnL by quarter hour; diamond markers identify the best score."
+        ),
         card_id="nomination-daily-scores",
     ):
-        daily_score_chart = alt.Chart(day_scores).mark_line(
+        score_lines = alt.Chart(day_scores).mark_line(
             interpolate="step-after",
             point=True,
             strokeWidth=2,
@@ -344,6 +366,27 @@ with daily_score_column:
                 alt.Tooltip("selected_candidate:N", title="Selected candidate"),
             ],
         ).properties(height=330)
+        winning_points = alt.Chart(day_scores.loc[day_scores["is_winner"]]).mark_point(
+            shape="diamond",
+            size=110,
+            filled=True,
+            stroke="#F4F7FA",
+            strokeWidth=1.4,
+        ).encode(
+            x="delivery_start_local:T",
+            y="expected_pnl_eur:Q",
+            color=candidate_color(),
+            tooltip=[
+                alt.Tooltip(
+                    "delivery_start_local:T",
+                    title="Delivery time",
+                    format="%H:%M",
+                ),
+                alt.Tooltip("candidate:N", title="Best candidate"),
+                alt.Tooltip("expected_pnl_eur:Q", title="Best expected PnL (€)", format=".2f"),
+            ],
+        )
+        daily_score_chart = alt.layer(score_lines, winning_points)
         st.altair_chart(style_chart(daily_score_chart), use_container_width=True)
 
 # Show the financial decomposition behind the three candidates for the selected day.
@@ -429,8 +472,14 @@ daily_table = daily_table.rename(
         "expected_pnl_eur_P90": "P90 score (€)",
     }
 )
+daily_table.insert(
+    1,
+    "Status",
+    "Selected · " + daily_table["Selected candidate"],
+)
 table_columns = [
     "Delivery time",
+    "Status",
     "P10 nomination (MWh)",
     "P50 nomination (MWh)",
     "P90 nomination (MWh)",
@@ -447,13 +496,22 @@ table_columns = [
     "P90 score (€)",
 ]
 
+
+def highlight_selected_cells(row):
+    return [
+        "background-color: rgba(217, 179, 108, 0.12);"
+        if column in {"Status", "Selected candidate"}
+        else ""
+        for column in row.index
+    ]
+
 with st.expander(f"Show all {len(daily_table)} quarter-hour decisions"):
     st.dataframe(
-        daily_table[table_columns],
+        daily_table[table_columns].style.apply(highlight_selected_cells, axis=1),
         hide_index=True,
         width="stretch",
         column_config={
             column: st.column_config.NumberColumn(format="%.2f")
-            for column in table_columns[1:4] + table_columns[5:]
+            for column in table_columns[2:5] + table_columns[6:]
         },
     )
