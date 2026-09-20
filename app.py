@@ -19,6 +19,8 @@ st.markdown(
             --dashboard-card-background: #151E2A;
             --dashboard-card-border: #6FAF8E;
             --dashboard-card-gutter: 14px;
+            --sidebar-block-spacing: 0.65rem;
+            --sidebar-block-spacing-wide: 0.85rem;
         }
 
         [data-testid="stAppViewContainer"] { background: #000000; }
@@ -30,11 +32,25 @@ st.markdown(
         }
 
         [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
-            gap: 0.45rem;
+            gap: 0.35rem;
+        }
+
+        [data-testid="stSidebar"] .st-key-sidebar-zone-block,
+        [data-testid="stSidebar"] .st-key-sidebar-portfolio-note,
+        [data-testid="stSidebar"] .st-key-sidebar-period-block,
+        [data-testid="stSidebar"] .st-key-sidebar-period-meta,
+        [data-testid="stSidebar"] .st-key-sidebar-modules-heading {
+            margin-bottom: var(--sidebar-block-spacing);
+        }
+
+        [data-testid="stSidebar"] .st-key-sidebar-title-block,
+        [data-testid="stSidebar"] .st-key-sidebar-portfolio-note,
+        [data-testid="stSidebar"] .st-key-sidebar-period-meta {
+            margin-bottom: var(--sidebar-block-spacing-wide);
         }
 
         .sidebar-app-title {
-            margin: 0 0 2px 0;
+            margin: 0;
             color: #E7EBF0;
             font-size: 1.18rem;
             font-weight: 650;
@@ -42,18 +58,26 @@ st.markdown(
         }
 
         .sidebar-context-note {
-            margin: 0;
+            margin: 0 !important;
             color: #93A2B5;
             font-size: 0.72rem;
             line-height: 1.3;
         }
 
         .sidebar-section-label {
-            margin: 8px 0 2px 2px;
-            color: #7F91A6;
+            display: block;
+            margin: 0;
+            color: #93A6BA;
             font-size: 0.64rem;
-            font-weight: 650;
+            font-weight: 700;
             letter-spacing: 0.12em;
+        }
+
+        [data-testid="stSidebar"] .st-key-sidebar-modules-heading {
+            position: relative;
+            z-index: 2;
+            padding: 10px 0 2px 2px;
+            border-top: 1px solid #29394B;
         }
 
         [data-testid="stSidebar"] [data-testid="stSelectbox"] label,
@@ -139,13 +163,13 @@ st.markdown(
 
         [data-testid="stSidebar"] [data-testid="stExpander"] details[open] > summary {
             background: #18232F;
-            border-left: 2px solid #6FAF8E;
-            color: #D7EDE1;
+            border-left: 2px solid transparent;
+            color: #C5CFDB;
             font-weight: 600;
         }
 
         [data-testid="stSidebar"] [data-testid="stExpander"] details[open] > summary * {
-            color: #D7EDE1 !important;
+            color: #C5CFDB !important;
         }
 
         [data-testid="stSidebar"] [data-testid="stExpander"] summary svg {
@@ -153,11 +177,15 @@ st.markdown(
         }
 
         [data-testid="stSidebar"] [data-testid="stExpander"] details[open] > summary svg {
-            color: #6FAF8E !important;
+            color: #9EADBF !important;
         }
 
         [data-testid="stSidebar"] [data-testid="stExpanderDetails"] {
             padding-left: 16px;
+        }
+
+        [data-testid="stSidebar"] [data-testid="stExpanderDetails"] [data-testid="stVerticalBlock"] {
+            gap: 0.2rem;
         }
 
         [data-testid="stMetric"] {
@@ -337,27 +365,30 @@ def sidebar_page_link(page, label: str) -> None:
         st.page_link(page, label=label)
 
 with st.sidebar:
-    st.markdown(
-        '<div class="sidebar-app-title">Renewable Portfolio</div>',
-        unsafe_allow_html=True,
-    )
-    market_zone = st.selectbox(
-        "Bidding zone",
-        options=list(MARKET_ZONES),
-        index=list(MARKET_ZONES).index(DEFAULT_MARKET_ZONE),
-        format_func=lambda zone_id: (
-            f"{zone_id} · {MARKET_ZONES[zone_id]['display_name']}"
-        ),
-        key="market_zone",
-        disabled=len(MARKET_ZONES) == 1,
-    )
+    with st.container(key="sidebar-title-block"):
+        st.markdown(
+            '<div class="sidebar-app-title">Renewable Portfolio</div>',
+            unsafe_allow_html=True,
+        )
+    with st.container(key="sidebar-zone-block"):
+        market_zone = st.selectbox(
+            "Bidding zone",
+            options=list(MARKET_ZONES),
+            index=list(MARKET_ZONES).index(DEFAULT_MARKET_ZONE),
+            format_func=lambda zone_id: (
+                f"{zone_id} · {MARKET_ZONES[zone_id]['display_name']}"
+            ),
+            key="market_zone",
+            disabled=len(MARKET_ZONES) == 1,
+        )
     zone_config = market_zone_config(market_zone)
-    st.markdown(
-        '<p class="sidebar-context-note">'
-        "Virtual portfolio · Not an operational Qair portfolio"
-        "</p>",
-        unsafe_allow_html=True,
-    )
+    with st.container(key="sidebar-portfolio-note"):
+        st.markdown(
+            '<p class="sidebar-context-note">'
+            "Virtual Qair portfolio · Backtest only"
+            "</p>",
+            unsafe_allow_html=True,
+        )
     # The zone and delivery period define the context for every page below.
     try:
         first_day, last_day = available_period(market_zone)
@@ -365,26 +396,29 @@ with st.sidebar:
         st.error(f"Unable to load the backtest period: {error}")
         st.stop()
 
-    period = st.date_input(
-        "Delivery period",
-        value=(first_day, last_day),
-        min_value=first_day,
-        max_value=last_day,
-        format="DD/MM/YYYY",
-        key=f"delivery_period_{market_zone}",
-    )
+    with st.container(key="sidebar-period-block"):
+        period = st.date_input(
+            "Delivery period",
+            value=(first_day, last_day),
+            min_value=first_day,
+            max_value=last_day,
+            format="DD/MM/YYYY",
+            key=f"delivery_period_{market_zone}",
+        )
     st.session_state["delivery_period"] = period
-    st.markdown(
-        '<p class="sidebar-context-note">'
-        f"Historical backtest · {zone_config['timezone']} · "
-        f"{zone_config['resolution_minutes']}-min"
-        "</p>",
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        '<div class="sidebar-section-label">MODULES</div>',
-        unsafe_allow_html=True,
-    )
+    with st.container(key="sidebar-period-meta"):
+        st.markdown(
+            '<p class="sidebar-context-note">'
+            f"Historical backtest · {zone_config['timezone']} · "
+            f"{zone_config['resolution_minutes']}-min"
+            "</p>",
+            unsafe_allow_html=True,
+        )
+    with st.container(key="sidebar-modules-heading"):
+        st.markdown(
+            '<span class="sidebar-section-label">MODULES</span>',
+            unsafe_allow_html=True,
+        )
     sidebar_page_link(portfolio_page, "Portfolio Overview")
     sidebar_page_link(production_page, "Production Forecast")
     sidebar_page_link(price_page, "Day-Ahead Price")
